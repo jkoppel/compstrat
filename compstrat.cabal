@@ -1,0 +1,29 @@
+Name:                compstrat
+Version:             0.1.0.0
+Synopsis:            Strategy combinators for compositional data types
+Description:         
+License:             BSD3
+License-File:        LICENSE
+Author:              James Koppel
+Maintainer:          jkoppel@mit.edu
+Category:            Language, Generics
+build-type:          Simple
+extra-source-files:  README.md
+Cabal-version:       >=1.9.2
+
+Library
+
+  Exposed-Modules:     
+                     Data.Comp.Multi.Strategic
+                     Data.Comp.Multi.Strategy.Classification
+                     Data.Comp.Multi.Strategy.Derive
+
+  Build-Depends:
+
+                     base >=4.7 && <4.8
+                   , compdata < 1
+                   , mtl < 2.3
+                   , template-haskell
+                   , th-expand-syns <= 0.4
+                   , transformers < 0.5
+
