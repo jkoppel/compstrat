@@ -1,23 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
--- | 
--- 
--- A library for strategic programming on compositional data types. See
--- /The Essence of Strategic Programming/, <http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.104.5296&rep=rep1&type=pdf>,
--- by Ralf Laemmel et al.
--- 
--- Strategic programming is a way of allowing traversals to be written in a highly
--- generic and composable fashion.
--- 
--- The names and general interface are modeled on the KURE library,
--- but this library tries to be as composable as the lens library.
--- 
--- This library probably could and should be rewritten 
--- and merged with the lens library. The type of a
--- strategy combinator is the same as the /Vertical/ type
--- that ekmett proposed and rejected as an extension to the current
--- lens library. A /Vertical/ is essentially a monadic traversal
 
 module Data.Comp.Multi.Strategic
   (
