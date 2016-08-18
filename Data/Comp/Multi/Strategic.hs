@@ -37,7 +37,7 @@ module Data.Comp.Multi.Strategic
   , crushtdT
   ) where
 
-import Control.Applicative ( Applicative, (<*) )
+import Control.Applicative ( Applicative, (<*), liftA )
 
 import Control.Monad ( MonadPlus(..), liftM, liftM2, (>=>) )
 import Control.Monad.Identity ( Identity )
@@ -46,10 +46,12 @@ import Control.Monad.Trans.Maybe ( MaybeT, runMaybeT )
 import Control.Monad.State ( StateT, runStateT, get, put )
 import Control.Monad.Writer ( WriterT, runWriterT, tell )
 
+import Control.Parallel.Strategies ( rparWith )
+
 import Data.Comp.Multi ( Cxt(..), Term, unTerm )
 import Data.Comp.Multi.Generic ( query )
 import Data.Comp.Multi.HFoldable ( HFoldable )
-import Data.Comp.Multi.HTraversable ( HTraversable, hmapM )
+import Data.Comp.Multi.HTraversable ( HTraversable(..) )
 import Data.Monoid ( Monoid, mappend, mempty, Any(..) )
 import Data.Type.Equality ( (:~:)(..), sym )
 
@@ -68,6 +70,11 @@ subst2 Refl x = x
 
 --------------------------------------------------------------------------------
 
+evalPar :: (HTraversable f) => f l -> f l
+evalPar = withStrategy (htraverse id)
+
+--------------------------------------------------------------------------------
+
 type RewriteM m f l = f l -> m (f l)
 type Rewrite f l = RewriteM Identity f l
 type GRewriteM m f = forall l. RewriteM m f l
@@ -79,7 +86,7 @@ type GRewrite f = GRewriteM Identity f
 
 type AnyR m = WriterT Any m
 
-wrapAnyR :: (Applicative m, MonadPlus m) => RewriteM m f l -> RewriteM (AnyR m) f l
+wrapAnyR :: (MonadPlus m) => RewriteM m f l -> RewriteM (AnyR m) f l
 wrapAnyR f t = (lift (f t) <* tell (Any True)) `mplus` return t
 
 unwrapAnyR :: MonadPlus m => RewriteM (AnyR m) f l -> RewriteM m f l
@@ -124,11 +131,11 @@ promoteRF :: (DynCase f l, Monad m) => RewriteM (MaybeT m) f l -> GRewriteM (May
 promoteRF = dynamicR
 
 -- | Applies a rewrite to all immediate subterms of the current term
-allR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
-allR f t = liftM Term $ hmapM f $ unTerm t
+allR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
+allR f t = liftA Term $ evalPar $ htraverse f $ unTerm t
 
 -- | Applies two rewrites in suceesion, succeeding if one or both succeed
-(>+>) :: (Applicative m, MonadPlus m) => GRewriteM m f -> GRewriteM m f -> GRewriteM m f
+(>+>) :: (MonadPlus m) => GRewriteM m f -> GRewriteM m f -> GRewriteM m f
 f >+> g = unwrapAnyR (wrapAnyR f >=> wrapAnyR g)
 
 -- | Left-biased choice -- (f +> g) runs f, and, if it fails, then runs g
@@ -136,39 +143,39 @@ f >+> g = unwrapAnyR (wrapAnyR f >=> wrapAnyR g)
 (+>) f g x = f x `mplus` g x
 
 -- | Applies a rewrite to all immediate subterms of the current term, succeeding if any succeed
-anyR :: (Applicative m, MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
+anyR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
 anyR f = unwrapAnyR $ allR $ wrapAnyR f -- not point-free because of type inference
 
 -- | Applies a rewrite to the first immediate subterm of the current term where it can succeed
-oneR :: (Applicative m, MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
+oneR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
 oneR f = unwrapOneR $ allR $ wrapOneR f -- not point-free because of type inference
 
 -- | Runs a rewrite in a bottom-up traversal
-allbuR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+allbuR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 allbuR f = allR (allbuR f) >=> f
 
 -- | Runs a rewrite in a top-down traversal
-alltdR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+alltdR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 alltdR f = f >=> allR (alltdR f)
 
 -- | Runs a rewrite in a bottom-up traversal, succeeding if any succeed
-anybuR :: (Applicative m, MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+anybuR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 anybuR f = anyR (anybuR f) >+> f
 
 -- | Runs a rewrite in a top-down traversal, succeeding if any succeed
-anytdR :: (Applicative m, MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+anytdR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 anytdR f = f >+> anyR (anytdR f)
 
 -- | Runs a rewrite in a top-down traversal, succeeding if any succeed, and pruning below successes
-prunetdR :: (Applicative m, MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+prunetdR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 prunetdR f = f +> anyR (prunetdR f)
 
 -- | Applies a rewrite to the first node where it can succeed in a bottom-up traversal
-onebuR :: (Applicative m, MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+onebuR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 onebuR f = oneR (onebuR f) +> f
 
 -- | Applies a rewrite to the first node where it can succeed in a top-down traversal
-onetdR :: (Applicative m, MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+onetdR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 onetdR f = f +> oneR (onetdR f)
 
 --------------------------------------------------------------------------------

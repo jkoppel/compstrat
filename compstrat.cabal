@@ -43,6 +43,7 @@ Library
                      base >=4.8
                    , compdata < 1
                    , mtl < 2.3
+                   , parallel >= 3.2
                    , template-haskell
                    , th-expand-syns <= 0.4.0.0
                    , transformers < 0.5
