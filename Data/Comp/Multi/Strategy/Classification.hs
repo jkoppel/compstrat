@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
@@ -36,7 +35,7 @@ class DynCase f a where
 class KDynCase f a where
   kdyncase :: forall (e :: * -> *) b. DynCase e a => f e b -> Maybe (b :~: a)
 
-instance KDynCase f a where
+instance {-# Overlappable #-} KDynCase f a where
   kdyncase = const Nothing
 
 instance (KDynCase f l, KDynCase g l) => KDynCase (f :+: g) l where
