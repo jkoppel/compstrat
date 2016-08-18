@@ -32,7 +32,7 @@ makeDynCase fname = do
        iTp :: Name -> Con -> Maybe Type
        iTp iVar (ForallC _ cxt _) =
          -- Check if the GADT phantom type is constrained
-         case [y | EqualP x y <- cxt, x == VarT iVar] of
+         case [y | AppT (AppT EqualityT x) y <- cxt, x == VarT iVar] of
            [] -> Nothing
            tp:_ -> Just tp
        iTp _ _ = Nothing
