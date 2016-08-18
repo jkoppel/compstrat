@@ -11,8 +11,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
 
-import Control.Applicative ( Applicative )
-
 import Control.Monad ( MonadPlus(..) )
 import Control.Monad.Identity ( Identity(..) )
 import Control.Monad.State ( MonadState )
@@ -78,7 +76,7 @@ getAnn = annSnd . projectA . unTerm
 --derive [makeHFunctor, makeHTraversable, makeHFoldable, makeEqHF, makeShowHF, makeOrdHF, smartFConstructors, makeDynCase]
 --       [''SourceFile]
 
-trackingFiles' :: (Applicative m, Monad m, SourceFile :<: f, DistAnn f a f', HFunctor f', HFunctor f, RemA f' f) => GRewriteM m (Term f') -> RewriteM m (Term f') SourceFileL
+trackingFiles' :: (Monad m, SourceFile :<: f, DistAnn f a f', HFunctor f', HFunctor f, RemA f' f) => GRewriteM m (Term f') -> RewriteM m (Term f') SourceFileL
 trackingFiles' f s@(project' -> Just (SourceFile _ x e)) = do e' <- f e
                                                               return $ appCxt $ ann lab (iSourceFile True x (Hole e'))
   where
@@ -89,7 +87,7 @@ trackingFiles' _ _                                        = error "trackingFiles
 -- | Lifts a rewrite to one that marks whether each source file has changed. This allows you to output only the files that changed.
 -- 
 -- Yes, this is in the /MaybeT (MaybeT m)/ monad
-trackingFiles :: (Applicative m, Monad m, HTraversable f', DistAnn f a f', HFunctor f', HFunctor f, RemA f' f, SourceFile :<: f, DynCase (Term f') SourceFileL ) => GRewriteM (MaybeT (MaybeT m)) (Term f') -> GRewriteM (MaybeT m) (Term f')
+trackingFiles :: (Monad m, HTraversable f', DistAnn f a f', HFunctor f', HFunctor f, RemA f' f, SourceFile :<: f, DynCase (Term f') SourceFileL ) => GRewriteM (MaybeT (MaybeT m)) (Term f') -> GRewriteM (MaybeT m) (Term f')
 trackingFiles f = prunetdR $ promoteRF $ tryR (trackingFiles' f)
 
 
