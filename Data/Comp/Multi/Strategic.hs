@@ -1,5 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Data.Comp.Multi.Strategic
@@ -46,11 +47,11 @@ import Control.Monad.Trans.Maybe ( MaybeT, runMaybeT )
 import Control.Monad.State ( StateT, runStateT, get, put )
 import Control.Monad.Writer ( WriterT, runWriterT, tell )
 
-import Control.Parallel.Strategies ( rparWith )
+import Control.Parallel.Strategies ( withStrategy, rparWith, rpar, Eval, runEval )
 
-import Data.Comp.Multi ( Cxt(..), Term, unTerm )
+import Data.Comp.Multi ( Cxt(..), Term, unTerm, (:->), (:=>) )
 import Data.Comp.Multi.Generic ( query )
-import Data.Comp.Multi.HFoldable ( HFoldable )
+import Data.Comp.Multi.HFoldable ( HFoldable(..) )
 import Data.Comp.Multi.HTraversable ( HTraversable(..) )
 import Data.Monoid ( Monoid, mappend, mempty, Any(..) )
 import Data.Type.Equality ( (:~:)(..), sym )
@@ -70,8 +71,9 @@ subst2 Refl x = x
 
 --------------------------------------------------------------------------------
 
-evalPar :: (HTraversable f) => f l -> f l
-evalPar = withStrategy (htraverse id)
+evalPar :: (HTraversable f) => f l :-> f l
+--evalPar = withStrategy (htraverse id)
+evalPar = id
 
 --------------------------------------------------------------------------------
 
@@ -132,7 +134,8 @@ promoteRF = dynamicR
 
 -- | Applies a rewrite to all immediate subterms of the current term
 allR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
-allR f t = liftA Term $ evalPar $ htraverse f $ unTerm t
+allR f t = liftA Term $ htraverse f $ unTerm t
+--allR f t = liftA Term $ evalPar $ htraverse f $ unTerm t
 
 -- | Applies two rewrites in suceesion, succeeding if one or both succeed
 (>+>) :: (MonadPlus m) => GRewriteM m f -> GRewriteM m f -> GRewriteM m f
@@ -151,11 +154,11 @@ oneR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Ter
 oneR f = unwrapOneR $ allR $ wrapOneR f -- not point-free because of type inference
 
 -- | Runs a rewrite in a bottom-up traversal
-allbuR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+allbuR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 allbuR f = allR (allbuR f) >=> f
 
 -- | Runs a rewrite in a top-down traversal
-alltdR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+alltdR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 alltdR f = f >=> allR (alltdR f)
 
 -- | Runs a rewrite in a bottom-up traversal, succeeding if any succeed
@@ -211,9 +214,16 @@ mtryM = liftM (maybe mempty id) . runMaybeT
 onetdT :: (MonadPlus m, HFoldable f) => GTranslateM m (Term f) t -> GTranslateM m (Term f) t
 onetdT t = query t mplus
 
+parQuery :: forall r f. HFoldable f => (Term f :=>  r) -> (r -> r -> r) -> Term f :=> r
+parQuery q c tree = runEval $ rec 8 tree
+  where
+    rec :: Int -> Term f :=> Eval r
+    rec 0 i = rpar $ query q c i
+    rec depth i@(Term t) = hfoldl (\s x -> liftM2 c s (rec (depth-1) x)) (rpar $ q i) t
+
 -- | Fold a tree in a top-down manner
 foldtdT :: (HFoldable f, Monoid t, Monad m) => GTranslateM m (Term f) t -> GTranslateM m (Term f) t
-foldtdT t = query t (liftM2 mappend)
+foldtdT t = parQuery t (liftM2 mappend)
 
 -- | An always successful top-down fold, replacing failures with mempty.
 crushtdT :: (HFoldable f, Monoid t, Monad m) => GTranslateM (MaybeT m) (Term f) t -> GTranslateM m (Term f) t

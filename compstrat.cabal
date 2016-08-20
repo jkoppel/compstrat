@@ -48,3 +48,5 @@ Library
                    , th-expand-syns <= 0.4.0.0
                    , transformers < 0.5
 
+  Ghc-Options:     -O2 -threaded -rtsopts
+

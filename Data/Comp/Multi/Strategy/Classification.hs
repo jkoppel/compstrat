@@ -5,6 +5,9 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
+
+{-# LANGUAGE OverlappingInstances #-}
+
 -- | 
 -- 
 -- This module contains typeclasses and operations allowing dynamic casing on sorts.
@@ -35,10 +38,10 @@ class DynCase f a where
 class KDynCase f a where
   kdyncase :: forall (e :: * -> *) b. DynCase e a => f e b -> Maybe (b :~: a)
 
-instance {-# Overlappable #-} KDynCase f a where
+instance {-# OVERLAPPABLE #-} KDynCase f a where
   kdyncase = const Nothing
 
-instance (KDynCase f l, KDynCase g l) => KDynCase (f :+: g) l where
+instance {-# OVERLAPPING #-} (KDynCase f l, KDynCase g l) => KDynCase (f :+: g) l where
   kdyncase = caseH kdyncase kdyncase
 
 instance DynCase (K a) b where
