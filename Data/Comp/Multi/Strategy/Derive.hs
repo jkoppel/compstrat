@@ -16,9 +16,10 @@ import Data.Type.Equality ( (:~:)(..) )
 import Language.Haskell.TH hiding ( Cxt )
 import Language.Haskell.TH.ExpandSyns
 import Language.Haskell.TH.Lib
+import Language.Haskell.TH.Ppr
 import Language.Haskell.TH.Syntax hiding ( Cxt )
 
-import Data.Comp.Multi.Strategy.Classification ( KDynCase, kdyncase )
+import Data.Comp.Multi.Strategy.Classification ( DynCase, KDynCase, kdyncase )
 
 
 makeDynCase :: Name -> Q [Dec]
@@ -41,9 +42,13 @@ makeDynCase fname = do
        genDyn tname cons tp = do
            clauses <- liftM concat $ mapM (mkClause tp) cons
            let body = [FunD 'kdyncase clauses]
-           instTp  <- forallT []
+           h <- newName "h"
+           f <- newName "f"
+           a <- newName "a"
+           let recFunc = foldl appT (conT ''Cxt) [varT h, varT f, varT a]
+           instTp  <- forallT (map plainTV [h, f, a])
                               (return [])
-                              (foldl appT (conT ''KDynCase) [conT tname, return tp])
+                              (foldl appT (conT ''KDynCase) [appT (conT tname) recFunc, return tp])
            return $ InstanceD [] instTp body
   
        mkClause :: Type -> ((Name, Int), Maybe Type) -> Q [Clause]
