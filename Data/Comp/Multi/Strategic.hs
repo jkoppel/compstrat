@@ -26,19 +26,25 @@ module Data.Comp.Multi.Strategic
   , prunetdR
   , onetdR
   , onebuR
+  , idR
 
     -- * Translations
   , Translate
   , TranslateM
   , GTranslateM
+  , (+>>)
+  , guardedT
+  , failT
+  , notT
   , promoteTF
   , mtryM
   , onetdT
+  , foldT
   , foldtdT
   , crushtdT
   ) where
 
-import Control.Applicative ( Applicative, (<*), liftA )
+import Control.Applicative ( Applicative, (<*), liftA, liftA2, Alternative(..) )
 
 import Control.Monad ( MonadPlus(..), liftM, liftM2, (>=>) )
 import Control.Monad.Identity ( Identity )
@@ -142,8 +148,9 @@ allR f t = liftA Term $ htraverse f $ unTerm t
 f >+> g = unwrapAnyR (wrapAnyR f >=> wrapAnyR g)
 
 -- | Left-biased choice -- (f +> g) runs f, and, if it fails, then runs g
-(+>) :: (MonadPlus m) => RewriteM m f l -> RewriteM m f l -> RewriteM m f l
-(+>) f g x = f x `mplus` g x
+-- This naming is questionable. I believe KURE used +> for this, but Stratego uses <+
+(+>) :: (Alternative m) => RewriteM m f l -> RewriteM m f l -> RewriteM m f l
+(+>) f g x = f x <|> g x
 
 -- | Applies a rewrite to all immediate subterms of the current term, succeeding if any succeed
 anyR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
@@ -181,6 +188,9 @@ onebuR f = oneR (onebuR f) +> f
 onetdR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 onetdR f = f +> oneR (onetdR f)
 
+idR :: (Applicative m) => RewriteM m f l
+idR = pure
+
 --------------------------------------------------------------------------------
 -- Translations
 --------------------------------------------------------------------------------
@@ -194,12 +204,25 @@ type TranslateM m f l t = f l -> m t
 -- | A monadic translation for all sorts
 type GTranslateM m f t = forall l. TranslateM m f l t
 
+(+>>) :: (Monad m) => TranslateM m f l t -> TranslateM m f l u -> TranslateM m f l u
+(+>>) f g t = f t *> g t
+
+-- | Guarded choice:
+guardedT :: (Alternative m) => TranslateM m f l t -> TranslateM m f l u -> TranslateM m f l u -> TranslateM m f l u
+guardedT guard t e x = (guard x *> t x) <|> (e x)
+
+failT :: (Alternative m) => TranslateM m f l t
+failT = const empty
+
+notT :: (Alternative m) => TranslateM m f l t -> RewriteM m f l
+notT t = guardedT t failT idR
+
 -- | Allows a one-sorted translation to be applied to any sort, failing at sorts
 --   different form the original
-promoteTF :: (DynCase f l, MonadPlus m) => TranslateM m f l t -> GTranslateM m f t
+promoteTF :: (DynCase f l, Alternative m) => TranslateM m f l t -> GTranslateM m f t
 promoteTF f t = case dyncase t of
                   Just p -> f (subst p t)
-                  Nothing -> mzero
+                  Nothing -> empty
 
 -- | Lifts a translation into the Maybe monad, allowing it to fail
 addFail :: Monad m => TranslateM m f l t -> TranslateM (MaybeT m) f l t
@@ -220,6 +243,9 @@ parQuery q c tree = runEval $ rec 8 tree
     rec :: Int -> Term f :=> Eval r
     rec 0 i = rpar $ query q c i
     rec depth i@(Term t) = hfoldl (\s x -> liftM2 c s (rec (depth-1) x)) (rpar $ q i) t
+
+foldT :: (HFoldable f, Monoid t, Applicative m) => GTranslateM m (Term f) t -> TranslateM m (Term f) l t
+foldT t (Term tree) = hfoldl (\s x -> liftA2 mappend s (t x)) (pure mempty) tree
 
 -- | Fold a tree in a top-down manner
 foldtdT :: (HFoldable f, Monoid t, Monad m) => GTranslateM m (Term f) t -> GTranslateM m (Term f) t
