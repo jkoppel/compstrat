@@ -18,9 +18,11 @@ module Data.Comp.Multi.Strategy.Classification
   , KDynCase(..)
   , dynProj
   , caseE
+  , subterms
   ) where
 
-import Data.Comp.Multi ( (:+:), E, K, runE, caseH, (:&:), remA, Cxt(..) )
+import Data.Comp.Multi ( Term, (:+:), E, K, runE, caseH, (:&:), remA, Cxt(..), subs )
+import Data.Comp.Multi.HFoldable ( HFoldable )
 import Data.Type.Equality ( (:~:)(..), gcastWith )
 
 --------------------------------------------------------------------------------
@@ -64,3 +66,7 @@ dynProj x = case (dyncase x :: Maybe (l' :~: l)) of
 -- | Inspect an existentially-quantified sort
 caseE :: (DynCase f a) => E f -> Maybe (f a)
 caseE = runE dynProj
+
+-- | Gives all subterms of any given sort of a term
+subterms :: (DynCase (Term f) l, HFoldable f) => Term f l' -> [Term f l]
+subterms x = [ y | Just y <- map caseE $ subs x]
