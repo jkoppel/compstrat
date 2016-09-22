@@ -12,6 +12,7 @@ module Data.Comp.Multi.Strategic
   , GRewrite
   , addFail
   , tryR
+  , failR
   , promoteR
   , promoteRF
   , allR
@@ -27,6 +28,7 @@ module Data.Comp.Multi.Strategic
   , onetdR
   , onebuR
   , idR
+  , traceR
 
     -- * Translations
   , Translate
@@ -55,10 +57,13 @@ import Control.Monad.Writer ( WriterT, runWriterT, tell )
 
 import Control.Parallel.Strategies ( withStrategy, rparWith, rpar, Eval, runEval )
 
+import Debug.Trace ( traceM )
+
 import Data.Comp.Multi ( Cxt(..), Term, unTerm, (:->), (:=>) )
 import Data.Comp.Multi.Generic ( query )
 import Data.Comp.Multi.HFoldable ( HFoldable(..) )
 import Data.Comp.Multi.HTraversable ( HTraversable(..) )
+import Data.Comp.Multi.Show ( ShowHF )
 import Data.Monoid ( Monoid, mappend, mempty, Any(..) )
 import Data.Type.Equality ( (:~:)(..), sym )
 
@@ -132,6 +137,9 @@ dynamicR f t = case dyncase t of
 tryR :: (Monad m) => RewriteM (MaybeT m) f l -> RewriteM m f l
 tryR f t = liftM (maybe t id) $ runMaybeT (f t)
 
+failR :: (MonadPlus m) => RewriteM m f l
+failR = const mzero
+
 promoteR :: (DynCase f l, Monad m) => RewriteM (MaybeT m) f l -> GRewriteM m f
 promoteR = tryR . dynamicR
 
@@ -190,6 +198,11 @@ onetdR f = f +> oneR (onetdR f)
 
 idR :: (Applicative m) => RewriteM m f l
 idR = pure
+
+traceR :: (ShowHF f, HTraversable f, Monad m) => RewriteM m (Term f) l
+traceR x = do
+  traceM $ show x
+  return x
 
 --------------------------------------------------------------------------------
 -- Translations
