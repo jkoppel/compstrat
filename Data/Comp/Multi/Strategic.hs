@@ -16,6 +16,7 @@ module Data.Comp.Multi.Strategic
   , promoteR
   , promoteRF
   , allR
+  , allIdxR
   , (>+>)
   , (+>)
   , anyR
@@ -52,7 +53,7 @@ import Control.Monad ( MonadPlus(..), liftM, liftM2, (>=>) )
 import Control.Monad.Identity ( Identity )
 import Control.Monad.Trans ( lift )
 import Control.Monad.Trans.Maybe ( MaybeT, runMaybeT )
-import Control.Monad.State ( StateT, runStateT, get, put )
+import Control.Monad.State ( StateT, runStateT, evalStateT, get, put )
 import Control.Monad.Writer ( WriterT, runWriterT, tell )
 
 import Control.Parallel.Strategies ( withStrategy, rparWith, rpar, Eval, runEval )
@@ -113,7 +114,7 @@ unwrapAnyR f t = do (t', Any b) <- runWriterT (f t)
 
 type OneR m = StateT Bool m
 
-wrapOneR :: (Applicative m, MonadPlus m) => RewriteM m f l -> RewriteM (OneR m) f l
+wrapOneR :: (MonadPlus m) => RewriteM m f l -> RewriteM (OneR m) f l
 wrapOneR f t = do b <- get
                   if b then
                     return t
@@ -126,6 +127,18 @@ unwrapOneR f t = do (t', b) <- runStateT (f t) False
                       return t'
                      else
                       mzero
+
+--------------------------------------------------------------------------------
+
+type IdxR m = StateT Int m
+
+wrapIdxR :: (Monad m) => (Int -> RewriteM m f l) -> RewriteM (IdxR m) f l
+wrapIdxR f t = do n <- get
+                  put $ n + 1
+                  lift $ f n t
+
+unwrapIdxR :: (Monad m) => RewriteM (IdxR m) f l -> RewriteM m f l
+unwrapIdxR f t = evalStateT (f t) 0
 
 --------------------------------------------------------------------------------
 
@@ -150,6 +163,9 @@ promoteRF = dynamicR
 allR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
 allR f t = liftA Term $ htraverse f $ unTerm t
 --allR f t = liftA Term $ evalPar $ htraverse f $ unTerm t
+
+allIdxR :: (Monad m, HTraversable f) => (Int -> GRewriteM m (Term f)) -> RewriteM m (Term f) l
+allIdxR f = unwrapIdxR $ allR $ wrapIdxR f
 
 -- | Applies two rewrites in suceesion, succeeding if one or both succeed
 (>+>) :: (MonadPlus m) => GRewriteM m f -> GRewriteM m f -> GRewriteM m f
