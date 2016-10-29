@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
@@ -19,11 +20,14 @@ module Data.Comp.Multi.Strategy.Classification
   , dynProj
   , caseE
   , subterms
+  , isSort
   ) where
+
+import Data.Type.Equality ( (:~:)(..), gcastWith )
+import Data.Proxy ( Proxy )
 
 import Data.Comp.Multi ( Term, (:+:), E, K, runE, caseH, (:&:), remA, Cxt(..), subs )
 import Data.Comp.Multi.HFoldable ( HFoldable )
-import Data.Type.Equality ( (:~:)(..), gcastWith )
 
 --------------------------------------------------------------------------------
 
@@ -70,3 +74,8 @@ caseE = runE dynProj
 -- | Gives all subterms of any given sort of a term
 subterms :: (DynCase (Term f) l, HFoldable f) => Term f l' -> [Term f l]
 subterms x = [ y | Just y <- map caseE $ subs x]
+
+isSort :: forall e l. (DynCase e l) => Proxy l -> forall i. e i -> Bool
+isSort _ x = case (dyncase x :: Maybe (_ :~: l)) of
+  Just _  -> True
+  Nothing -> False

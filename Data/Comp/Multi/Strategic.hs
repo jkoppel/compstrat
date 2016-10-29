@@ -36,6 +36,8 @@ module Data.Comp.Multi.Strategic
   , TranslateM
   , GTranslateM
   , (+>>)
+  , isSortT
+  , guardBoolT
   , guardedT
   , failT
   , notT
@@ -49,7 +51,7 @@ module Data.Comp.Multi.Strategic
 
 import Control.Applicative ( Applicative, (<*), liftA, liftA2, Alternative(..) )
 
-import Control.Monad ( MonadPlus(..), liftM, liftM2, (>=>) )
+import Control.Monad ( MonadPlus(..), liftM, liftM2, (>=>), guard )
 import Control.Monad.Identity ( Identity )
 import Control.Monad.Trans ( lift )
 import Control.Monad.Trans.Maybe ( MaybeT, runMaybeT )
@@ -66,6 +68,7 @@ import Data.Comp.Multi.HFoldable ( HFoldable(..) )
 import Data.Comp.Multi.HTraversable ( HTraversable(..) )
 import Data.Comp.Multi.Show ( ShowHF )
 import Data.Monoid ( Monoid, mappend, mempty, Any(..) )
+import Data.Proxy ( Proxy(..) )
 import Data.Type.Equality ( (:~:)(..), sym )
 
 import Data.Comp.Multi.Strategy.Classification
@@ -235,6 +238,12 @@ type GTranslateM m f t = forall l. TranslateM m f l t
 
 (+>>) :: (Monad m) => TranslateM m f l t -> TranslateM m f l u -> TranslateM m f l u
 (+>>) f g t = f t *> g t
+
+isSortT :: (DynCase f l, Applicative m) => Proxy l -> TranslateM m f l' Bool
+isSortT p = pure . isSort p
+
+guardBoolT :: (MonadPlus m) => TranslateM m f l Bool -> TranslateM m f l ()
+guardBoolT t x = t x >>= guard
 
 -- | Guarded choice:
 guardedT :: (Alternative m) => TranslateM m f l t -> TranslateM m f l u -> TranslateM m f l u -> TranslateM m f l u
