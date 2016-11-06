@@ -16,6 +16,7 @@ module Data.Comp.Multi.Strategic
   , promoteR
   , promoteRF
   , allR
+  , revAllR
   , allIdxR
   , (>+>)
   , (+>)
@@ -23,6 +24,7 @@ module Data.Comp.Multi.Strategic
   , oneR
   , alltdR
   , allbuR
+  , revAllbuR
   , anytdR
   , anybuR
   , prunetdR
@@ -50,6 +52,7 @@ module Data.Comp.Multi.Strategic
   ) where
 
 import Control.Applicative ( Applicative, (<*), liftA, liftA2, Alternative(..) )
+import Control.Applicative.Backwards ( Backwards(..) )
 
 import Control.Monad ( MonadPlus(..), liftM, liftM2, (>=>), guard )
 import Control.Monad.Identity ( Identity )
@@ -167,6 +170,9 @@ allR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (T
 allR f t = liftA Term $ htraverse f $ unTerm t
 --allR f t = liftA Term $ evalPar $ htraverse f $ unTerm t
 
+revAllR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
+revAllR f t = liftA Term $ forwards $ htraverse (Backwards . f) $ unTerm t
+
 allIdxR :: (Monad m, HTraversable f) => (Int -> GRewriteM m (Term f)) -> RewriteM m (Term f) l
 allIdxR f = unwrapIdxR $ allR $ wrapIdxR f
 
@@ -190,6 +196,9 @@ oneR f = unwrapOneR $ allR $ wrapOneR f -- not point-free because of type infere
 -- | Runs a rewrite in a bottom-up traversal
 allbuR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
 allbuR f = allR (allbuR f) >=> f
+
+revAllbuR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+revAllbuR f = revAllR (revAllbuR f) >=> f
 
 -- | Runs a rewrite in a top-down traversal
 alltdR :: (Monad m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
