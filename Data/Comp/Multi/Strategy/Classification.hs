@@ -50,15 +50,15 @@ instance {-# OVERLAPPABLE #-} KDynCase f a where
 instance {-# OVERLAPPING #-} (KDynCase (f e) l, KDynCase (g e) l) => KDynCase ((f :+: g) e) l where
   kdyncase = caseH kdyncase kdyncase
 
+instance {-# OVERLAPPING #-} (KDynCase (f e) l) => KDynCase ((f :&: a) e) l where
+  kdyncase = kdyncase . remA
+
 instance DynCase (K a) b where
   dyncase _ = Nothing
 
 instance (KDynCase (f (Cxt h f a)) l, DynCase a l) => DynCase (Cxt h f a) l where
   dyncase (Term x) = kdyncase x
   dyncase (Hole x) = dyncase x
-
-instance (KDynCase (f e) l) => KDynCase ((f :&: a) e) l where
-  kdyncase = kdyncase . remA
 
 --------------------------------------------------------------------------------
 
