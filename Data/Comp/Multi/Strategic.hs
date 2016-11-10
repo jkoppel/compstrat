@@ -32,6 +32,7 @@ module Data.Comp.Multi.Strategic
   , onebuR
   , idR
   , traceR
+  , isSortR
 
     -- * Translations
   , Translate
@@ -232,6 +233,9 @@ traceR x = do
   traceM $ show x
   return x
 
+isSortR :: (MonadPlus m, DynCase f l) => Proxy l -> RewriteM m f l'
+isSortR p = guardedT (guardBoolT (isSortT p)) idR failR
+
 --------------------------------------------------------------------------------
 -- Translations
 --------------------------------------------------------------------------------
@@ -256,11 +260,12 @@ guardBoolT t x = t x >>= guard
 
 -- | Guarded choice:
 guardedT :: (Alternative m) => TranslateM m f l t -> TranslateM m f l u -> TranslateM m f l u -> TranslateM m f l u
-guardedT guard t e x = (guard x *> t x) <|> (e x)
+guardedT g t e x = (g x *> t x) <|> (e x)
 
 failT :: (Alternative m) => TranslateM m f l t
 failT = const empty
 
+-- FIXME: This is apparently broken
 notT :: (Alternative m) => TranslateM m f l t -> RewriteM m f l
 notT t = guardedT t failT idR
 
