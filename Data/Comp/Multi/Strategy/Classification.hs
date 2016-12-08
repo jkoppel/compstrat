@@ -42,21 +42,21 @@ class DynCase f a where
 
 -- | An instance @KDynCase f a@ defines an instance @DynCase (Term f) a@
 class KDynCase f a where
-  kdyncase :: f b -> Maybe (b :~: a)
+  kdyncase :: forall (e :: * -> *) b. DynCase e a => f e b -> Maybe (b :~: a)
 
 instance {-# OVERLAPPABLE #-} KDynCase f a where
   kdyncase = const Nothing
 
-instance {-# OVERLAPPING #-} (KDynCase (f e) l, KDynCase (g e) l) => KDynCase ((f :+: g) e) l where
+instance {-# OVERLAPPING #-} (KDynCase f l, KDynCase g l) => KDynCase (f :+: g) l where
   kdyncase = caseH kdyncase kdyncase
 
-instance {-# OVERLAPPING #-} (KDynCase (f e) l) => KDynCase ((f :&: a) e) l where
+instance {-# OVERLAPPING #-} (KDynCase f l) => KDynCase (f :&: a) l where
   kdyncase = kdyncase . remA
 
 instance DynCase (K a) b where
   dyncase _ = Nothing
 
-instance (KDynCase (f (Cxt h f a)) l, DynCase a l) => DynCase (Cxt h f a) l where
+instance (KDynCase f l, DynCase a l) => DynCase (Cxt h f a) l where
   dyncase (Term x) = kdyncase x
   dyncase (Hole x) = dyncase x
 

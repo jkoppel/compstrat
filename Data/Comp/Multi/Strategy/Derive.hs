@@ -42,13 +42,9 @@ makeDynCase fname = do
        genDyn tname cons tp = do
            clauses <- liftM concat $ mapM (mkClause tp) cons
            let body = [FunD 'kdyncase clauses]
-           h <- newName "h"
-           f <- newName "f"
-           a <- newName "a"
-           let recFunc = foldl appT (conT ''Cxt) [varT h, varT f, varT a]
-           instTp  <- forallT (map plainTV [h, f, a])
+           instTp  <- forallT []
                               (return [])
-                              (foldl appT (conT ''KDynCase) [appT (conT tname) recFunc, return tp])
+                              (foldl appT (conT ''KDynCase) [conT tname, return tp])
            return $ InstanceD [] instTp body
   
        mkClause :: Type -> ((Name, Int), Maybe Type) -> Q [Clause]
