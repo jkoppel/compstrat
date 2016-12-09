@@ -7,19 +7,13 @@ module Data.Comp.Multi.Strategy.Derive (
 import Control.Arrow ( (&&&) )
 import Control.Monad
 
-import Data.Comp.Multi.Sum
-import Data.Comp.Multi.Term
 import Data.List ( nub )
 import Data.Maybe ( catMaybes )
 import Data.Type.Equality ( (:~:)(..) )
 
 import Language.Haskell.TH hiding ( Cxt )
-import Language.Haskell.TH.ExpandSyns
-import Language.Haskell.TH.Lib
-import Language.Haskell.TH.Ppr
-import Language.Haskell.TH.Syntax hiding ( Cxt )
 
-import Data.Comp.Multi.Strategy.Classification ( DynCase, KDynCase, kdyncase )
+import Data.Comp.Multi.Strategy.Classification ( KDynCase, kdyncase )
 
 
 makeDynCase :: Name -> Q [Dec]
