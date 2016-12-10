@@ -40,9 +40,15 @@ class DynCase f a where
   -- | Determine whether a node has sort @a@
   dyncase :: f b -> Maybe (b :~: a)
 
+class KDynCaseWithConstr f a c | f a -> c where
+  kdyncaseConstr :: forall (e :: * -> *) b. c e => f e b -> Maybe (b :~: a)
+
+instance {-# OVERLAPPABLE #-} (KDynCase f a) => KDynCaseWithConstr f a (FlipDynCase a) where
+  kdyncaseConstr = kdyncase
+
 -- | An instance @KDynCase f a@ defines an instance @DynCase (Term f) a@
-class KDynCase f a where
-  kdyncase :: forall (e :: * -> *) b. DynCase e a => f e b -> Maybe (b :~: a)
+class (KDynCaseWithConstr f a c) => KDynCase f a where
+  kdyncase :: forall (e :: * -> *) b. c e => f e b -> Maybe (b :~: a)
 
 instance {-# OVERLAPPABLE #-} KDynCase f a where
   kdyncase = const Nothing
@@ -59,8 +65,8 @@ instance DynCase (K a) b where
 instance (KDynCase f l, DynCase (Cxt h g a) l) => DynCase (f (Cxt h g a)) l where
   dyncase = kdyncase
 
-instance (KDynCase f l, DynCase a l) => DynCase (Cxt h f a) l where
-  dyncase (Term x) = kdyncase x
+instance (DynCase (f (Cxt h f a)) l, DynCase a l) => DynCase (Cxt h f a) l where
+  dyncase (Term x) = dyncase x
   dyncase (Hole x) = dyncase x
 
 --------------------------------------------------------------------------------
