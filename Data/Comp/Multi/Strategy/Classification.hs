@@ -56,6 +56,9 @@ instance {-# OVERLAPPING #-} (KDynCase f l) => KDynCase (f :&: a) l where
 instance DynCase (K a) b where
   dyncase _ = Nothing
 
+instance (KDynCase f l, DynCase (Cxt h g a) l) => DynCase (f (Cxt h g a)) l where
+  dyncase = kdyncase
+
 instance (KDynCase f l, DynCase a l) => DynCase (Cxt h f a) l where
   dyncase (Term x) = kdyncase x
   dyncase (Hole x) = dyncase x
