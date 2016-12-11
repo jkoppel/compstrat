@@ -2,13 +2,13 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | 
@@ -23,16 +23,21 @@ module Data.Comp.Multi.Strategy.Classification
   , caseE
   , subterms
   , isSort
+  , kIsSort
   ) where
 
 import Data.Type.Equality ( (:~:)(..), gcastWith )
 import Data.Proxy ( Proxy )
+
+import GHC.Exts ( Constraint )
 
 import Data.Comp.Multi ( Term, (:+:), E, K, runE, caseH, (:&:), remA, Cxt(..), subs )
 import Data.Comp.Multi.HFoldable ( HFoldable )
 
 --------------------------------------------------------------------------------
 
+class EmptyConstraint (e :: * -> *) l
+instance EmptyConstraint e l
 
 -- |
 -- This operation allows you to rediscover the label giving
@@ -42,15 +47,9 @@ class DynCase f a where
   -- | Determine whether a node has sort @a@
   dyncase :: f b -> Maybe (b :~: a)
 
-class KDynCaseWithConstr f a c | f a -> c where
-  kdyncaseConstr :: forall (e :: * -> *) b. c e => f e b -> Maybe (b :~: a)
-
-instance {-# OVERLAPPABLE #-} (KDynCase f a) => KDynCaseWithConstr f a (FlipDynCase a) where
-  kdyncaseConstr = kdyncase
-
 -- | An instance @KDynCase f a@ defines an instance @DynCase (Term f) a@
-class (KDynCaseWithConstr f a c) => KDynCase f a where
-  kdyncase :: forall (e :: * -> *) b. c e => f e b -> Maybe (b :~: a)
+class KDynCase (f :: (* -> *) -> * -> *) a where
+  kdyncase :: f e b -> Maybe (b :~: a)
 
 instance {-# OVERLAPPABLE #-} KDynCase f a where
   kdyncase = const Nothing
@@ -64,11 +63,8 @@ instance {-# OVERLAPPING #-} (KDynCase f l) => KDynCase (f :&: a) l where
 instance DynCase (K a) b where
   dyncase _ = Nothing
 
-instance (KDynCase f l, DynCase (Cxt h g a) l) => DynCase (f (Cxt h g a)) l where
-  dyncase = kdyncase
-
-instance (DynCase (f (Cxt h f a)) l, DynCase a l) => DynCase (Cxt h f a) l where
-  dyncase (Term x) = dyncase x
+instance (KDynCase f l, DynCase a l) => DynCase (Cxt h f a) l where
+  dyncase (Term x) = kdyncase x
   dyncase (Hole x) = dyncase x
 
 --------------------------------------------------------------------------------
@@ -88,5 +84,10 @@ subterms x = [ y | Just y <- map caseE $ subs x]
 
 isSort :: forall e l. (DynCase e l) => Proxy l -> forall i. e i -> Bool
 isSort _ x = case (dyncase x :: Maybe (_ :~: l)) of
+  Just _  -> True
+  Nothing -> False
+
+kIsSort :: forall f l. (KDynCase f l) => Proxy l -> forall i e. f e i -> Bool
+kIsSort _ x = case (kdyncase x :: Maybe (_ :~: l)) of
   Just _  -> True
   Nothing -> False
