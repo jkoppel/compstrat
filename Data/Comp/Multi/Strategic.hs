@@ -27,6 +27,7 @@ module Data.Comp.Multi.Strategic
   , revAllbuR
   , anytdR
   , anybuR
+  , prunetdRF
   , prunetdR
   , onetdR
   , onebuR
@@ -214,8 +215,12 @@ anytdR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (
 anytdR f = f >+> anyR (anytdR f)
 
 -- | Runs a rewrite in a top-down traversal, succeeding if any succeed, and pruning below successes
-prunetdR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
-prunetdR f = f +> anyR (prunetdR f)
+prunetdRF :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
+prunetdRF f = f +> anyR (prunetdRF f)
+
+-- | Like prunetdRF, but the outer level always succeeds
+prunetdR :: (Monad m, HTraversable f) => GRewriteM (MaybeT m) (Term f) -> GRewriteM m (Term f)
+prunetdR = tryR . prunetdRF
 
 -- | Applies a rewrite to the first node where it can succeed in a bottom-up traversal
 onebuR :: (MonadPlus m, HTraversable f) => GRewriteM m (Term f) -> GRewriteM m (Term f)
