@@ -17,6 +17,7 @@ module Data.Comp.Multi.Strategic
   , promoteRF
   , allR
   , revAllR
+  , allStateR
   , allIdxR
   , (>+>)
   , (+>)
@@ -138,18 +139,6 @@ unwrapOneR f t = do (t', b) <- runStateT (f t) False
 
 --------------------------------------------------------------------------------
 
-type IdxR m = StateT Int m
-
-wrapIdxR :: (Monad m) => (Int -> RewriteM m f l) -> RewriteM (IdxR m) f l
-wrapIdxR f t = do n <- get
-                  put $ n + 1
-                  lift $ f n t
-
-unwrapIdxR :: (Monad m) => RewriteM (IdxR m) f l -> RewriteM m f l
-unwrapIdxR f t = evalStateT (f t) 0
-
---------------------------------------------------------------------------------
-
 dynamicR :: (DynCase f l, MonadPlus m) => RewriteM m f l -> GRewriteM m f
 dynamicR f t = case dyncase t of
                  Just p -> subst2 (sym p) $ f (subst p t)
@@ -175,8 +164,19 @@ allR f t = liftA Term $ htraverse f $ unTerm t
 revAllR :: (Applicative m, HTraversable f) => GRewriteM m (Term f) -> RewriteM m (Term f) l
 revAllR f t = liftA Term $ forwards $ htraverse (Backwards . f) $ unTerm t
 
+allStateR :: forall m f s l. (Monad m, HTraversable f) => (forall i. s -> Term f i -> m (Term f i, s)) -> s -> RewriteM m (Term f) l
+allStateR f s t = liftA Term $ evalStateT (htraverse f' $ unTerm t) s
+  where
+    f' :: GRewriteM (StateT s m) (Term f)
+    f' x = do st <- get
+              (x', st') <- lift $ f st x
+              put st'
+              return x'
+
+
 allIdxR :: (Monad m, HTraversable f) => (Int -> GRewriteM m (Term f)) -> RewriteM m (Term f) l
-allIdxR f = unwrapIdxR $ allR $ wrapIdxR f
+allIdxR f = allStateR (\n x -> (,) <$> f n x <*> pure (n + 1)) 0
+
 
 -- | Applies two rewrites in suceesion, succeeding if one or both succeed
 (>+>) :: (MonadPlus m) => GRewriteM m f -> GRewriteM m f -> GRewriteM m f
