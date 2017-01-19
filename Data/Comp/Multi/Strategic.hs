@@ -13,6 +13,7 @@ module Data.Comp.Multi.Strategic
   , addFail
   , tryR
   , failR
+  , dynamicR
   , promoteR
   , promoteRF
   , allR
