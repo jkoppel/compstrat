@@ -41,7 +41,7 @@ Library
   Build-Depends:
 
                      base >=4.8
-                   , compdata < 1
+                   , cubix-compdata
                    , mtl < 2.3
                    , parallel >= 3.2
                    , template-haskell
