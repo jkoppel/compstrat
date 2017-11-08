@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -52,7 +53,12 @@ class DynCase f a where
 class KDynCase (f :: (* -> *) -> * -> *) a where
   kdyncase :: f e b -> Maybe (b :~: a)
 
-instance {-# OVERLAPPABLE #-} KDynCase f a where
+type family IsSum (f :: (* -> *) -> * -> *) :: Bool where
+  IsSum (f :+: g) = True
+  IsSum f         = False
+
+-- Stop typeclass resolver from using this when it shouldn't
+instance {-# OVERLAPPABLE #-} (IsSum f ~ False) => KDynCase f a where
   kdyncase = const Nothing
 
 instance {-# OVERLAPPING #-} (KDynCase f l, KDynCase g l) => KDynCase (f :+: g) l where
