@@ -33,7 +33,7 @@ import Data.Proxy ( Proxy )
 
 import GHC.Exts ( Constraint )
 
-import Data.Comp.Multi ( Term, (:+:), E, K, runE, caseH, (:&:), remA, Cxt(..), subs )
+import Data.Comp.Multi ( Term, (:+:), E, K, runE, caseH, (:&:), remA, Cxt(..), subs, NotSum )
 import Data.Comp.Multi.HFoldable ( HFoldable )
 
 --------------------------------------------------------------------------------
@@ -53,12 +53,8 @@ class DynCase f a where
 class KDynCase (f :: (* -> *) -> * -> *) a where
   kdyncase :: f e b -> Maybe (b :~: a)
 
-type family IsSum (f :: (* -> *) -> * -> *) :: Bool where
-  IsSum (f :+: g) = True
-  IsSum f         = False
-
 -- Stop typeclass resolver from using this when it shouldn't
-instance {-# OVERLAPPABLE #-} (IsSum f ~ False) => KDynCase f a where
+instance {-# OVERLAPPABLE #-} (NotSum f) => KDynCase f a where
   kdyncase = const Nothing
 
 instance {-# OVERLAPPING #-} (KDynCase f l, KDynCase g l) => KDynCase (f :+: g) l where
