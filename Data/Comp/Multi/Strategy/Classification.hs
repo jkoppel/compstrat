@@ -21,6 +21,7 @@ module Data.Comp.Multi.Strategy.Classification
     DynCase(..)
   , KDynCase(..)
   , dynProj
+  , fromDynProj
   , caseE
   , caseDyn
   , subterms
@@ -29,6 +30,7 @@ module Data.Comp.Multi.Strategy.Classification
   ) where
 
 import Data.Type.Equality ( (:~:)(..), gcastWith )
+import Data.Maybe ( fromJust )
 import Data.Proxy ( Proxy )
 
 import GHC.Exts ( Constraint )
@@ -76,6 +78,9 @@ dynProj :: forall f l l'. (DynCase f l) => f l' -> Maybe (f l)
 dynProj x = case (dyncase x :: Maybe (l' :~: l)) of
               Just p -> Just (gcastWith p x)
               Nothing -> Nothing
+
+fromDynProj :: (DynCase f l) => f l' -> f l
+fromDynProj x = fromJust $ dynProj x
 
 -- | Inspect an existentially-quantified sort
 caseE :: (DynCase f a) => E f -> Maybe (f a)
